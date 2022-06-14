@@ -2,10 +2,11 @@ package godbf
 
 import (
 	"errors"
-	"github.com/axgle/mahonia"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/axgle/mahonia"
 )
 
 const (
@@ -484,7 +485,7 @@ func (dt *DbfTable) fillFieldWithBlanks(fieldLength int, offset int, recordOffse
 
 //FieldValue returns the content for the record at the given row and field index as a string
 // If the row or field index is invalid, an error is returned .
-func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
+func (dt *DbfTable) FieldValue(row int, fieldIndex int, noTrimming bool) (value string) {
 
 	offset := int(dt.numberOfBytesInHeader)
 	lengthOfRecord := int(dt.lengthOfEachRecord)
@@ -508,7 +509,11 @@ func (dt *DbfTable) FieldValue(row int, fieldIndex int) (value string) {
 	s := dt.decoder.ConvertString(string(temp))
 	//fmt.Printf("utf-8 value:[%#v] original value:[%#v]\n", s, string(temp))
 
-	value = strings.TrimSpace(s)
+	value = s
+
+	if !noTrimming {
+		value = strings.TrimSpace(s)
+	}
 
 	//fmt.Printf("raw value:[%#v]\n", dt.dataStore[(offset + recordOffset):((offset + recordOffset) + int(dt.Fields[fieldIndex].fixedFieldLength))])
 	//fmt.Printf("utf-8 value:[%#v]\n", []byte(s))
@@ -541,7 +546,16 @@ func (dt *DbfTable) Int64FieldValueByName(row int, fieldName string) (value int6
 // FieldValueByName returns the value of a field given row number and name provided
 func (dt *DbfTable) FieldValueByName(row int, fieldName string) (value string, err error) {
 	if fieldIndex, entryFound := dt.fieldMap[fieldName]; entryFound {
-		return dt.FieldValue(row, fieldIndex), err
+		return dt.FieldValue(row, fieldIndex, false), err
+	}
+	err = errors.New("Field name \"" + fieldName + "\" does not exist")
+	return
+}
+
+// FieldValueByNameNonTrimmed returns the value of a field given row number and name provided and preserves white spaces
+func (dt *DbfTable) FieldValueByNameNonTrimmed(row int, fieldName string) (value string, err error) {
+	if fieldIndex, entryFound := dt.fieldMap[fieldName]; entryFound {
+		return dt.FieldValue(row, fieldIndex, true), err
 	}
 	err = errors.New("Field name \"" + fieldName + "\" does not exist")
 	return
@@ -561,7 +575,7 @@ func (dt *DbfTable) GetRowAsSlice(row int) []string {
 	s := make([]string, len(dt.Fields()))
 
 	for i := 0; i < len(dt.Fields()); i++ {
-		s[i] = dt.FieldValue(row, i)
+		s[i] = dt.FieldValue(row, i, false)
 	}
 
 	return s
